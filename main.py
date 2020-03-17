@@ -11,7 +11,7 @@ from sklearn.metrics import confusion_matrix
 # March, 2020
 
 matplotlib.use('TkAgg')  # This code was developed on a Linux device, so the back end needed to be changed in order
-# to display plots.
+# to display plots. If using Windows this line may be commented out.
 
 
 # Callback class for recording epoch times (Taken from https://stackoverflow.com/a/43186440)
