@@ -90,7 +90,7 @@ def task_1_fully_connected(data, parameters):
     plt.xlabel('Time (min)')
     plt.ylabel('Loss')
     plt.show()
-    a = 'debug'
+
 
 def main():
 
@@ -115,8 +115,6 @@ def main():
             "mini_batch_size": 200
         }
         task_1_fully_connected(data, parameters)
-
-    a = 1  # debug
 
 
 if __name__ == "__main__":
