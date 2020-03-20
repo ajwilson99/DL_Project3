@@ -1,3 +1,7 @@
+# Aaron Wilson
+# March, 2020
+
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.utils import to_categorical
