@@ -7,8 +7,8 @@ import project_functions as pf
 
 def main():
 
-    tasknum = int(sys.argv[1])  # Can be a number, 1 to 5
-    #tasknum = 1
+    # tasknum = int(sys.argv[1])  # Can be a number, 1 to 5
+    tasknum = 5
     (x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()  # Load data
 
     (x_train, x_test) = pf.min_max_scale_data(x_train, x_test)  # Normalize data
@@ -47,10 +47,9 @@ def main():
         pf.task_3_bigger_convolutional(data, parameters)
 
     elif tasknum == 4:
-        # Custom CNN: Changed learning rate to 0.5, chose Adam optimizer with B1 = 0.9, B2 = 0.999,
-        # chose Huber Loss function
+        # Custom CNN: Added momentum with gamma = 0.9, let nesterov = True.
         parameters = {
-            "learning_rate": 0.5,
+            "learning_rate": 0.1,
             "epochs": 50,
             "mini_batch_size": 200
         }
@@ -58,10 +57,11 @@ def main():
 
     elif tasknum == 5:
         parameters = {
-            "learning_rate": 0.5,
+            "learning_rate": 0.01,
             "epochs": 50,
             "mini_batch_size": 200,
-            "latent_dim": 10
+            "latent_dim": 10,
+            "loss_func": "mean_squared_error" # or "binary_cross_entropy"
         }
         pf.task_5_var_autoencoder(data, parameters)
 

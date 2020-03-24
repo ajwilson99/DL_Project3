@@ -57,7 +57,7 @@ def sampling(args):  # Taken from https://keras.io/examples/variational_autoenco
     dim = K.int_shape(z_mean)[1]
     # by default, random_normal has mean = 0 and std = 1.0
     epsilon = K.random_normal(shape=(batch, dim))
-    return z_mean * K.exp(0.5 * z_log_var) * epsilon
+    return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
 
 def task_1_fully_connected(data, parameters):
@@ -103,7 +103,6 @@ def task_1_fully_connected(data, parameters):
     plt.title('Epoch-Loss Plot - Task 1')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.show()
 
     plt.subplot(1,2,2)
     plt.plot(times/60, train_history.history['loss'])
@@ -157,7 +156,6 @@ def task_2_small_convolutional(data, parameters):
     plt.title('Epoch-Loss Plot - Task 2')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.show()
 
     plt.subplot(1, 2, 2)
     plt.plot(times / 60, train_history.history['loss'])
@@ -215,7 +213,6 @@ def task_3_bigger_convolutional(data, parameters):
     plt.title('Epoch-Loss Plot - Task 3')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.show()
 
     plt.subplot(1, 2, 2)
     plt.plot(times / 60, train_history.history['loss'])
@@ -251,8 +248,9 @@ def task_4_custom_convolutional(data, parameters):
     epochs = parameters["epochs"]
     mini_batch_size = parameters["mini_batch_size"]
 
-    ad = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, amsgrad=False)
-    model.compile(loss='huber_loss', optimizer=ad, metrics=['accuracy'])
+    #ad = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, amsgrad=False)
+    sgd = keras.optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
+    model.compile(loss='mean_squared_error', optimizer=sgd, metrics=['accuracy'])
 
     time_callback = TimeHistory()
     train_history = model.fit(x_train, y_train, nb_epoch=epochs, batch_size=mini_batch_size, callbacks=[time_callback])
@@ -270,15 +268,14 @@ def task_4_custom_convolutional(data, parameters):
     plt.subplot(1, 2, 1)
     plt.plot(train_history.history['loss'])
     plt.grid()
-    plt.title('Epoch-Loss Plot - Task 3')
+    plt.title('Epoch-Loss Plot - Task 4')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.show()
 
     plt.subplot(1, 2, 2)
     plt.plot(times / 60, train_history.history['loss'])
     plt.grid()
-    plt.title('Time-Loss Plot - Task 3')
+    plt.title('Time-Loss Plot - Task 4')
     plt.xlabel('Time (min)')
     plt.ylabel('Loss')
     plt.show()
@@ -287,65 +284,103 @@ def task_4_custom_convolutional(data, parameters):
 def task_5_var_autoencoder(data, parameters):
 
     x_train = data['x_train']
-    x_train = x_train.reshape(60000, 28, 28, 1)
+    x_train = x_train.reshape(60000, 28, 28, 1).astype('float32')
     y_train = to_categorical(data['y_train'])
     x_test = data['x_test']
-    x_test = x_test.reshape(10000, 28, 28, 1)
+    x_test = x_test.reshape(10000, 28, 28, 1).astype('float32')
     y_test = data['y_test']
 
     latent_dim = parameters["latent_dim"]
-    lossfunc = 'mean_squared_error'
     learning_rate = parameters["learning_rate"]
     mini_batch_size = parameters["mini_batch_size"]
+    epochs = parameters["epochs"]
+    loss_func = parameters["loss_func"]
 
-    # Build Encoder
-    inputs = Input(shape=(28, 28, 1), name='encoder_input')
-    c1 = Conv2D(filters=24, kernel_size=3,
-                            activation='relu', strides=1, padding='valid', input_shape=(28, 28, 1))(inputs) # output shape 26x26x48
-    c2 = Conv2D(filters=48, kernel_size=3,
-                            activation='relu', strides=1, padding='valid')(c1)  # output shape 24x24x48
-    f1 = Flatten()(c2),
-    z_mean = Dense(latent_dim)(f1[0])
-    z_log_var = Dense(latent_dim)(f1[0])
+    sess = tf.Session()
+    with sess.as_default():
 
-    z = Lambda(sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var])
-    encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder_output')
-    encoder.summary()
+        # Build Encoder
+        inputs = Input(shape=(28, 28, 1), name='encoder_input')
+        c1 = Conv2D(filters=8, kernel_size=3,
+                                activation='relu', strides=2, padding='same', input_shape=(28, 28, 1))(inputs) 
+        c2 = Conv2D(filters=16, kernel_size=3,
+                                activation='relu', strides=2, padding='same')(c1)  
+        f1 = Flatten()(c2)
+        d1 = Dense(16, activation='relu')(f1)
+        z_mean = Dense(latent_dim, name='z_mean')(d1)
+        z_log_var = Dense(latent_dim, name='z_log_var')(d1)
 
-    # Build Decoder
-    latent_inputs = Input(shape=(latent_dim,), name='z_sampling')
-    x = Dense(24*24*48, activation='relu',name='decoder_first_dense')(latent_inputs)
-    r = Reshape(target_shape=(24, 24, 48))(x)
-    dc1 = Conv2DTranspose(filters=48, kernel_size=3, activation='relu', strides=1, padding='valid')(r)
-    dc2 = Conv2DTranspose(filters=24, kernel_size=3, activation='relu', strides=1, padding='valid')(dc1)
-    y = Conv2DTranspose(filters=1, kernel_size=3, strides=1, padding='same')(dc2)
-    decoder = Model(latent_inputs, y, name='decoder_output')
-    decoder.summary()
+        z = Lambda(sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var])
+        encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder_output')
+        encoder.summary()
 
-    # Instantiate VAE model
-    outputs = decoder(encoder(inputs)[2])
-    vae = Model(inputs, outputs, name='VAE')
+        # Build Decoder
+        latent_inputs = Input(shape=(latent_dim,), name='z_sampling')
+        x = Dense(7*7*16, activation='relu',name='decoder_first_dense')(latent_inputs)
+        r = Reshape(target_shape=(7, 7, 16))(x)
+        dc1 = Conv2DTranspose(filters=16, kernel_size=3, activation='relu', strides=2, padding='same')(r)
+        dc2 = Conv2DTranspose(filters=8, kernel_size=3, activation='relu', strides=2, padding='same')(dc1)
+        y = Conv2DTranspose(filters=1, kernel_size=3, padding='same', activation='sigmoid')(dc2)
+        decoder = Model(latent_inputs, y, name='decoder_output')
+        decoder.summary()
 
-    # Compile VAE model
-    sgd = keras.optimizers.SGD(lr=learning_rate, nesterov=False)
-    vae.compile(loss='mean_squared_error', optimizer=sgd, metrics=['accuracy'])
-    time_callback = TimeHistory()
-    train_history = vae.fit(x_train, x_train, epochs=50, batch_size=mini_batch_size, callbacks=[time_callback])
+        # Instantiate VAE model
+        outputs = decoder(encoder(inputs)[2])
+        vae = Model(inputs, outputs, name='VAE')
+        if (loss_func == "mean_squared_error"):
+            loss = mse(K.flatten(inputs), K.flatten(outputs))
+        else:
+            loss = binary_crossentropy(K.flatten(inputs), K.flatten(outputs))
 
-    times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
-    # (each time is roughly the same value, but want to plot over the entire period)
+        # Add KL Divergence term    
+        loss *= x_train.shape[1] * x_train.shape[1]
+        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
+        kl_loss = K.sum(kl_loss, axis=-1)
+        kl_loss *= -0.5
+        vae_loss = K.mean(loss + kl_loss)
+        vae.add_loss(vae_loss)
 
-    x_pred = vae.predict(x_test) 
+        # Compile VAE model
+        sgd = keras.optimizers.SGD(lr=learning_rate)
+        vae.compile(optimizer=sgd, metrics=['accuracy'])
+        time_callback = TimeHistory()
+        train_history = vae.fit(x_train, epochs=epochs, batch_size=mini_batch_size, callbacks=[time_callback])
 
-    # Test plot
-    test_out = x_pred[527].reshape(28, 28)  # Randomly chosen value from test set - 527
-    test_in = x_test[527].reshape(28, 28)
+        times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
+        # (each time is roughly the same value, but want to plot over the entire period)
 
-    plt.subplot(2,1,1)
-    plt.imshow(test_in)
-    plt.subplot(2,1,2)
-    plt.imshow(test_out)
+        x_pred = vae.predict(x_test) 
 
-    # TODO: Plot epoch-loss, time-loss curves,
-    # TODO: choose ten random latent vectors to feed into the decoder to generate plots of clothes,
-    # TODO: Alter network architecture to produce different results
+        #test_in = tf.cast(x_train[0].reshape(1, 28, 28, 1), 'float32')
+        #test_lv = encoder(test_in)
+        #test_out = decoder(test_lv[2])
+        
+        random_test_vectors = np.random.normal(0, 1, (10, 10))
+        test_images = np.zeros((28, 28, 10))
+        for lv in range(0, random_test_vectors.shape[0]):
+            test_images[:, :, lv] = decoder(random_test_vectors[lv].reshape(1, 10)).eval().reshape(28, 28)
+
+        test_plot_idcs = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
+        plt.figure(0)
+        for im in range(0, random_test_vectors.shape[0]):
+            plt.subplot2grid((2, 5), test_plot_idcs[im])
+            plt.imshow(test_images[:, :, im])
+
+        plt.show()
+
+        plt.subplot(1, 2, 1)
+        plt.plot(train_history.history['loss'])
+        plt.grid()
+        plt.title('Epoch-Loss Plot - Task 5')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+
+        plt.subplot(1, 2, 2)
+        plt.plot(times / 60, train_history.history['loss'])
+        plt.grid()
+        plt.title('Time-Loss Plot - Task 5')
+        plt.xlabel('Time (min)')
+        plt.ylabel('Loss')
+        plt.show()
+
+        
