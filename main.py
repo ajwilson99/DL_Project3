@@ -7,18 +7,19 @@ import project_functions as pf
 
 def main():
 
-    # tasknum = int(sys.argv[1])  # Can be a number, 1 to 5
-    tasknum = 5
+    tasknum = int(sys.argv[1])  # Can be a number, 1 to 5
     (x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()  # Load data
 
-    (x_train, x_test) = pf.min_max_scale_data(x_train, x_test)  # Normalize data
+    (x_train, x_test, maxval, minval) = pf.min_max_scale_data(x_train, x_test)  # Normalize data
 
     # Package data into a single variable for passing to functions
     data = {
         "x_train": x_train,
         "y_train": y_train,
         "x_test": x_test,
-        "y_test": y_test
+        "y_test": y_test,
+        "max": maxval,
+        "min": minval
     }
 
     if tasknum == 1:
@@ -47,7 +48,8 @@ def main():
         pf.task_3_bigger_convolutional(data, parameters)
 
     elif tasknum == 4:
-        # Custom CNN: Added momentum with gamma = 0.9, let nesterov = True.
+        # Custom CNN: Added a Conv2D layer with 24 filters, another Max Pooling layer,
+        # momentum with gamma = 0.9, let nesterov = True.
         parameters = {
             "learning_rate": 0.1,
             "epochs": 50,

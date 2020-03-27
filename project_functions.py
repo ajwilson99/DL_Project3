@@ -41,7 +41,7 @@ def min_max_scale_data(x_train, x_test):  # Min-max scaling of data
 
     x_test_norm = ((x_test - minval)/(maxval - minval))
 
-    return (x_train_norm, x_test_norm)
+    return (x_train_norm, x_test_norm, maxval, minval)
 
 def sampling(args):  # Taken from https://keras.io/examples/variational_autoencoder/
     """ Reparameterization trick by sampling from an isotropic unit Gaussian
@@ -77,6 +77,7 @@ def task_1_fully_connected(data, parameters):
         Dense(units=10, activation='softmax')
     ])
 
+    # Extract parameters
     learning_rate = parameters["learning_rate"]
     epochs = parameters["epochs"]
     mini_batch_size = parameters["mini_batch_size"]
@@ -89,7 +90,7 @@ def task_1_fully_connected(data, parameters):
     times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
                                         # (each time is roughly the same value, but want to plot over the entire period)
 
-    y_pred = np.argmax(model.predict(x_test), axis=1)
+    y_pred = np.argmax(model.predict(x_test), axis=1)  # Predicted values of test set
 
     test_acc = 100*len(np.where(y_pred == y_test)[0])/len(y_test)
     confusion_mat = confusion_matrix(y_test, y_pred, normalize='true')
@@ -121,6 +122,7 @@ def task_2_small_convolutional(data, parameters):
     x_test = x_test.reshape(10000, 28, 28, 1)
     y_test = data['y_test']
 
+    # Create model
     model = Sequential([
         Conv2D(filters=40, kernel_size=5,
                             activation='relu', strides=1, padding='valid', input_shape=(28, 28, 1)),
@@ -130,6 +132,7 @@ def task_2_small_convolutional(data, parameters):
         Dense(units=10, activation='softmax')
     ])
 
+    # Extract parameters
     learning_rate = parameters["learning_rate"]
     epochs = parameters["epochs"]
     mini_batch_size = parameters["mini_batch_size"]
@@ -142,7 +145,7 @@ def task_2_small_convolutional(data, parameters):
     times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
     # (each time is roughly the same value, but want to plot over the entire period)
 
-    y_pred = np.argmax(model.predict(x_test), axis=1)
+    y_pred = np.argmax(model.predict(x_test), axis=1)  # Predict labels of test set data
 
     test_acc = 100 * len(np.where(y_pred == y_test)[0]) / len(y_test)
     confusion_mat = confusion_matrix(y_test, y_pred, normalize='true')
@@ -175,6 +178,7 @@ def task_3_bigger_convolutional(data, parameters):
     x_test = x_test.reshape(10000, 28, 28, 1)
     y_test = data['y_test']
 
+    # Create model
     model = Sequential([
         Conv2D(filters=48, kernel_size=3,
                             activation='relu', strides=1, padding='valid', input_shape=(28, 28, 1)),
@@ -187,6 +191,7 @@ def task_3_bigger_convolutional(data, parameters):
         Dense(units=10, activation='softmax')
     ])
 
+    # Extract parameters
     learning_rate = parameters["learning_rate"]
     epochs = parameters["epochs"]
     mini_batch_size = parameters["mini_batch_size"]
@@ -199,7 +204,7 @@ def task_3_bigger_convolutional(data, parameters):
     times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
     # (each time is roughly the same value, but want to plot over the entire period)
 
-    y_pred = np.argmax(model.predict(x_test), axis=1)
+    y_pred = np.argmax(model.predict(x_test), axis=1)  # Predict labels for test set data
 
     test_acc = 100 * len(np.where(y_pred == y_test)[0]) / len(y_test)
     confusion_mat = confusion_matrix(y_test, y_pred, normalize='true')
@@ -232,23 +237,26 @@ def task_4_custom_convolutional(data, parameters):
     x_test = x_test.reshape(10000, 28, 28, 1)
     y_test = data['y_test']
 
+    # Create model
     model = Sequential([
-        Conv2D(filters=48, kernel_size=3,
-                            activation='relu', strides=1, padding='valid', input_shape=(28, 28, 1)),
-        MaxPool2D(pool_size=(2, 2), strides=1, padding='valid'),
         Conv2D(filters=96, kernel_size=3,
-                            activation='relu', strides=1, padding='valid'),
+                            activation='relu', strides=1, padding='same', input_shape=(28, 28, 1)),
+        MaxPool2D(pool_size=(2, 2), strides=1, padding='valid'),
+        Conv2D(filters=48, kernel_size=3,
+                            activation='relu', strides=1, padding='same'),
+        MaxPool2D(pool_size=(2, 2), strides=1, padding='valid'),
+        Conv2D(filters=24, kernel_size=3, activation='relu', strides=1, padding='same'),
         MaxPool2D(pool_size=(2, 2), strides=1, padding='valid'),
         Flatten(),
         Dense(units=100, activation='relu'),
         Dense(units=10, activation='softmax')
     ])
 
+    # Extract parameters
     learning_rate = parameters["learning_rate"]
     epochs = parameters["epochs"]
     mini_batch_size = parameters["mini_batch_size"]
 
-    #ad = keras.optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, amsgrad=False)
     sgd = keras.optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
     model.compile(loss='mean_squared_error', optimizer=sgd, metrics=['accuracy'])
 
@@ -257,7 +265,7 @@ def task_4_custom_convolutional(data, parameters):
     times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
     # (each time is roughly the same value, but want to plot over the entire period)
 
-    y_pred = np.argmax(model.predict(x_test), axis=1)
+    y_pred = np.argmax(model.predict(x_test), axis=1)  # Predict labels for test set data
 
     test_acc = 100 * len(np.where(y_pred == y_test)[0]) / len(y_test)
     confusion_mat = confusion_matrix(y_test, y_pred, normalize='true')
@@ -290,12 +298,14 @@ def task_5_var_autoencoder(data, parameters):
     x_test = x_test.reshape(10000, 28, 28, 1).astype('float32')
     y_test = data['y_test']
 
+    # Extract parameters
     latent_dim = parameters["latent_dim"]
     learning_rate = parameters["learning_rate"]
     mini_batch_size = parameters["mini_batch_size"]
     epochs = parameters["epochs"]
     loss_func = parameters["loss_func"]
 
+    # Initialize a tensorflow session for evaluating tensors
     sess = tf.Session()
     with sess.as_default():
 
@@ -348,18 +358,16 @@ def task_5_var_autoencoder(data, parameters):
 
         times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
         # (each time is roughly the same value, but want to plot over the entire period)
-
-        x_pred = vae.predict(x_test) 
-
-        #test_in = tf.cast(x_train[0].reshape(1, 28, 28, 1), 'float32')
-        #test_lv = encoder(test_in)
-        #test_out = decoder(test_lv[2])
         
+        # Generate 10 random latent vectors following a N(0, 1) distribution
         random_test_vectors = np.random.normal(0, 1, (10, 10))
-        test_images = np.zeros((28, 28, 10))
+        test_images = np.zeros((28, 28, 10))  # Initialize variable for decoder outputs based on the random latent vectors
+        
+        # Generate images based on ten random latent vectors
         for lv in range(0, random_test_vectors.shape[0]):
             test_images[:, :, lv] = decoder(random_test_vectors[lv].reshape(1, 10)).eval().reshape(28, 28)
 
+        # Plotting
         test_plot_idcs = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
         plt.figure(0)
         for im in range(0, random_test_vectors.shape[0]):
