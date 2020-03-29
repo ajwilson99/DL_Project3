@@ -391,4 +391,105 @@ def task_5_var_autoencoder(data, parameters):
         plt.ylabel('Loss')
         plt.show()
 
+def task_6_var_autoencoder_alt(data, parameters):
+
+    x_train = data['x_train']
+    x_train = x_train.reshape(60000, 28, 28, 1).astype('float32')
+    y_train = to_categorical(data['y_train'])
+    x_test = data['x_test']
+    x_test = x_test.reshape(10000, 28, 28, 1).astype('float32')
+    y_test = data['y_test']
+
+    # Extract parameters
+    latent_dim = parameters["latent_dim"]
+    learning_rate = parameters["learning_rate"]
+    mini_batch_size = parameters["mini_batch_size"]
+    epochs = parameters["epochs"]
+    loss_func = parameters["loss_func"]
+
+    # Initialize a tensorflow session for evaluating tensors
+    sess = tf.Session()
+    with sess.as_default():
+
+        # Build Encoder
+        inputs = Input(shape=(28, 28, 1), name='encoder_input')
+        c1 = Conv2D(filters=10, kernel_size=3,
+                                activation='relu', strides=2, padding='same', input_shape=(28, 28, 1))(inputs) 
+        c2 = Conv2D(filters=20, kernel_size=3,
+                                activation='relu', strides=2, padding='same')(c1)  
+        f1 = Flatten()(c2)
+        d1 = Dense(16, activation='relu')(f1)
+        z_mean = Dense(latent_dim, name='z_mean')(d1)
+        z_log_var = Dense(latent_dim, name='z_log_var')(d1)
+
+        z = Lambda(sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var])
+        encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder_output')
+        encoder.summary()
+
+        # Build Decoder
+        latent_inputs = Input(shape=(latent_dim,), name='z_sampling')
+        x = Dense(7*7*20, activation='relu',name='decoder_first_dense')(latent_inputs)
+        r = Reshape(target_shape=(7, 7, 20))(x)
+        dc1 = Conv2DTranspose(filters=20, kernel_size=3, activation='relu', strides=2, padding='same')(r)
+        dc2 = Conv2DTranspose(filters=10, kernel_size=3, activation='relu', strides=2, padding='same')(dc1)
+        y = Conv2DTranspose(filters=1, kernel_size=3, padding='same', activation='sigmoid')(dc2)
+        decoder = Model(latent_inputs, y, name='decoder_output')
+        decoder.summary()
+
+        # Instantiate VAE model
+        outputs = decoder(encoder(inputs)[2])
+        vae = Model(inputs, outputs, name='VAE')
+        if (loss_func == "mean_squared_error"):
+            loss = mse(K.flatten(inputs), K.flatten(outputs))
+        else:
+            loss = binary_crossentropy(K.flatten(inputs), K.flatten(outputs))
+
+        # Add KL Divergence term    
+        loss *= x_train.shape[1] * x_train.shape[1]
+        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
+        kl_loss = K.sum(kl_loss, axis=-1)
+        kl_loss *= -0.5
+        vae_loss = K.mean(loss + kl_loss)
+        vae.add_loss(vae_loss)
+
+        # Compile VAE model
+        sgd = keras.optimizers.SGD(lr=learning_rate)
+        vae.compile(optimizer=sgd, metrics=['accuracy'])
+        time_callback = TimeHistory()
+        train_history = vae.fit(x_train, epochs=epochs, batch_size=mini_batch_size, callbacks=[time_callback])
+
+        times = np.cumsum(time_callback.times)  # Cumulative sum for plotting
+        # (each time is roughly the same value, but want to plot over the entire period)
+        
+        # Generate 10 random latent vectors following a N(0, 1) distribution
+        random_test_vectors = np.random.normal(0, 1, (10, 20))
+        test_images = np.zeros((28, 28, 10))  # Initialize variable for decoder outputs based on the random latent vectors
+        
+        # Generate images based on ten random latent vectors
+        for lv in range(0, random_test_vectors.shape[0]):
+            test_images[:, :, lv] = decoder(random_test_vectors[lv].reshape(1, 20)).eval().reshape(28, 28)
+
+        # Plotting
+        test_plot_idcs = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
+        plt.figure(0)
+        for im in range(0, random_test_vectors.shape[0]):
+            plt.subplot2grid((2, 5), test_plot_idcs[im])
+            plt.imshow(test_images[:, :, im])
+
+        plt.show()
+
+        plt.subplot(1, 2, 1)
+        plt.plot(train_history.history['loss'])
+        plt.grid()
+        plt.title('Epoch-Loss Plot - Task 5')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+
+        plt.subplot(1, 2, 2)
+        plt.plot(times / 60, train_history.history['loss'])
+        plt.grid()
+        plt.title('Time-Loss Plot - Task 5')
+        plt.xlabel('Time (min)')
+        plt.ylabel('Loss')
+        plt.show()
         

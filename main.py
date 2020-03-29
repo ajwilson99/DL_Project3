@@ -67,6 +67,15 @@ def main():
         }
         pf.task_5_var_autoencoder(data, parameters)
 
+    elif tasknum == 6:
+        parameters = {
+            "learning_rate": 0.001,
+            "epochs": 50,
+            "mini_batch_size": 200,
+            "latent_dim": 20,
+            "loss_func": "mean_squared_error"
+        }
+        pf.task_6_var_autoencoder_alt(data, parameters)
 
 if __name__ == "__main__":
 
